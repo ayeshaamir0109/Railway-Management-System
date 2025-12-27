@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Railway Management System - Passenger Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="dashboard-header">
+            <h1>Passenger Dashboard</h1>
+            <div class="user-info">
+                <span id="userName"></span>
+                <button onclick="logout()" class="btn btn-small">Logout</button>
+            </div>
+        </header>
+
+        <nav class="dashboard-nav">
+            <button onclick="showTrains()" class="nav-btn active">Available Trains</button>
+            <button onclick="showMyBookings()" class="nav-btn">My Bookings</button>
+        </nav>
+
+        <main class="dashboard-content">
+            <!-- Available Trains Section -->
+            <section id="trainsSection" class="content-section">
+                <h2>Available Trains</h2>
+                <div id="trainsList" class="cards-container">
+                    <!-- Trains will be loaded here dynamically -->
+                </div>
+            </section>
+
+            <!-- My Bookings Section -->
+            <section id="bookingsSection" class="content-section" style="display: none;">
+                <h2>My Bookings</h2>
+                <div id="bookingsList" class="cards-container">
+                    <!-- Bookings will be loaded here dynamically -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        let currentPassenger = null;
+
+        window.addEventListener('DOMContentLoaded', function() {
+            // Get current user from session
+            const userData = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+            
+            if (!userData.id || userData.type !== 'Passenger') {
+                alert('Please login as Passenger');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Initialize passenger object
+            currentPassenger = new Passenger(userData.id, userData.name, 'passenger@example.com');
+            document.getElementById('userName').textContent = `Welcome, ${userData.name}`;
+
+            // Initialize system if needed
+            if (!railwaySystem) {
+                railwaySystem = new RailwaySystem();
+            }
+
+            showTrains();
+        });
+
+        function showTrains() {
+            document.getElementById('trainsSection').style.display = 'block';
+            document.getElementById('bookingsSection').style.display = 'none';
+            
+            // Update active nav button
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Load and display trains
+            const trains = railwaySystem.getAllTrains();
+            const trainsList = document.getElementById('trainsList');
+            
+            if (trains.length === 0) {
+                trainsList.innerHTML = '<p class="empty-message">No trains available at the moment.</p>';
+                return;
+            }
+
+            trainsList.innerHTML = trains.map(train => `
+                <div class="card">
+                    <h3>${train.getTrainName()}</h3>
+                    <div class="card-info">
+                        <p><strong>Route:</strong> ${train.getSource()} → ${train.getDestination()}</p>
+                        <p><strong>Date:</strong> ${train.getDepartureDate()}</p>
+                        <p><strong>Time:</strong> ${train.getDepartureTime()}</p>
+                        <p><strong>Available Seats:</strong> ${train.getAvailableSeats()}</p>
+                        <p><strong>Train ID:</strong> ${train.getTrainId()}</p>
+                    </div>
+                    <button onclick="bookTrain('${train.getTrainId()}')" class="btn btn-primary">Book Ticket</button>
+                </div>
+            `).join('');
+        }
+
+        function showMyBookings() {
+            document.getElementById('trainsSection').style.display = 'none';
+            document.getElementById('bookingsSection').style.display = 'block';
+            
+            // Update active nav button
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            // Load and display bookings for current passenger
+            const bookings = railwaySystem.getBookingsByPassenger(currentPassenger.getId());
+            const bookingsList = document.getElementById('bookingsList');
+            
+            if (bookings.length === 0) {
+                bookingsList.innerHTML = '<p class="empty-message">You have no bookings yet.</p>';
+                return;
+            }
+
+            bookingsList.innerHTML = bookings.map(booking => {
+                const train = railwaySystem.getTrainById(booking.getTrainId());
+                return `
+                    <div class="card">
+                        <h3>Booking #${booking.getBookingId()}</h3>
+                        <div class="card-info">
+                            <p><strong>Train:</strong> ${train ? train.getTrainName() : 'N/A'}</p>
+                            <p><strong>Route:</strong> ${train ? train.getSource() + ' → ' + train.getDestination() : 'N/A'}</p>
+                            <p><strong>Date:</strong> ${booking.getBookingDate()}</p>
+                            <p><strong>Status:</strong> <span class="status-badge status-${booking.getStatus().toLowerCase()}">${booking.getStatus()}</span></p>
+                            <p><strong>Seat Number:</strong> ${booking.getSeatNumber() || 'TBA'}</p>
+                        </div>
+                        ${booking.getStatus() === 'CONFIRMED' ? 
+                            `<button onclick="cancelBooking('${booking.getBookingId()}')" class="btn btn-danger">Cancel Booking</button>` : 
+                            ''
+                        }
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function bookTrain(trainId) {
+            if (!currentPassenger) {
+                alert('Please login first');
+                return;
+            }
+
+            const train = railwaySystem.getTrainById(trainId);
+            if (!train) {
+                alert('Train not found');
+                return;
+            }
+
+            if (train.getAvailableSeats() <= 0) {
+                alert('No seats available on this train');
+                return;
+            }
+
+            // Passenger books a train ticket (uses inheritance - Passenger extends User)
+            const booking = currentPassenger.bookTrain(train, railwaySystem);
+            
+            if (booking) {
+                alert(`Booking successful! Booking ID: ${booking.getBookingId()}`);
+                showTrains();
+            } else {
+                alert('Booking failed. Please try again.');
+            }
+        }
+
+        function cancelBooking(bookingId) {
+            if (confirm('Are you sure you want to cancel this booking?')) {
+                const cancelled = railwaySystem.cancelBooking(bookingId);
+                if (cancelled) {
+                    alert('Booking cancelled successfully');
+                    showMyBookings();
+                } else {
+                    alert('Failed to cancel booking');
+                }
+            }
+        }
+
+        function logout() {
+            sessionStorage.removeItem('currentUser');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
+

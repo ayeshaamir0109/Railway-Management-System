@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Railway Management System - Login</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="login-card">
+            <h1>Railway Management System</h1>
+            <h2>Login</h2>
+            
+            <div class="login-options">
+                <button onclick="loginAsPassenger()" class="btn btn-primary">Login as Passenger</button>
+                <button onclick="loginAsStaff()" class="btn btn-secondary">Login as Railway Staff</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Initialize the system with sample data
+        window.addEventListener('DOMContentLoaded', function() {
+            if (!railwaySystem) {
+                railwaySystem = new RailwaySystem();
+                initializeSampleData();
+            }
+        });
+
+        function loginAsPassenger() {
+            // Mock passenger login - in real system, this would verify credentials
+            const passenger = new Passenger('P001', 'Ali', 'john@example.com');
+            sessionStorage.setItem('currentUser', JSON.stringify({type: 'Passenger', id: passenger.getId(), name: passenger.getName()}));
+            window.location.href = 'passenger-dashboard.html';
+        }
+
+        function loginAsStaff() {
+            // Mock staff login - in real system, this would verify credentials
+            const staff = new RailwayStaff('S001', 'Admin User', 'admin@railway.com', 'Station Master');
+            sessionStorage.setItem('currentUser', JSON.stringify({type: 'RailwayStaff', id: staff.getId(), name: staff.getName()}));
+            window.location.href = 'staff-dashboard.html';
+        }
+
+        function initializeSampleData() {
+            // Initialize with sample trains if database is empty
+            const trains = railwaySystem.getAllTrains();
+            if (trains.length === 0) {
+                const train1 = new Train('T001', 'Express 101', 'Mumbai', 'Delhi', '2024-12-20', '08:00', 50);
+                const train2 = new Train('T002', 'Superfast 202', 'Bangalore', 'Chennai', '2024-12-20', '14:30', 30);
+                const train3 = new Train('T003', 'Local 303', 'Pune', 'Mumbai', '2024-12-21', '06:00', 100);
+                
+                railwaySystem.addTrain(train1);
+                railwaySystem.addTrain(train2);
+                railwaySystem.addTrain(train3);
+            }
+        }
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Railway Management System - Staff Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="dashboard-header">
+            <h1>Railway Staff Dashboard</h1>
+            <div class="user-info">
+                <span id="userName"></span>
+                <button onclick="logout()" class="btn btn-small">Logout</button>
+            </div>
+        </header>
+
+        <nav class="dashboard-nav">
+            <button onclick="showTrains()" class="nav-btn active">Manage Trains</button>
+            <button onclick="showBookings()" class="nav-btn">Manage Bookings</button>
+        </nav>
+
+        <main class="dashboard-content">
+            <!-- Manage Trains Section -->
+            <section id="trainsSection" class="content-section">
+                <div class="section-header">
+                    <h2>Train Management</h2>
+                    <button onclick="showAddTrainForm()" class="btn btn-primary">Add New Train</button>
+                </div>
+
+                <!-- Add Train Form -->
+                <div id="addTrainForm" class="form-container" style="display: none;">
+                    <h3>Add New Train</h3>
+                    <form onsubmit="addTrain(event)">
+                        <div class="form-group">
+                            <label>Train Name:</label>
+                            <input type="text" id="trainName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Source Station:</label>
+                            <input type="text" id="trainSource" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Destination Station:</label>
+                            <input type="text" id="trainDestination" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Departure Date:</label>
+                            <input type="date" id="trainDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Departure Time:</label>
+                            <input type="time" id="trainTime" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Total Seats:</label>
+                            <input type="number" id="trainSeats" min="1" required>
+                        </div>
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Add Train</button>
+                            <button type="button" onclick="hideAddTrainForm()" class="btn btn-secondary">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="trainsList" class="cards-container">
+                    <!-- Trains will be loaded here dynamically -->
+                </div>
+            </section>
+
+            <!-- Manage Bookings Section -->
+            <section id="bookingsSection" class="content-section" style="display: none;">
+                <h2>All Bookings</h2>
+                <div id="bookingsList" class="cards-container">
+                    <!-- Bookings will be loaded here dynamically -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        let currentStaff = null;
+
+        window.addEventListener('DOMContentLoaded', function() {
+            // Get current user from session
+            const userData = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
+            
+            if (!userData.id || userData.type !== 'RailwayStaff') {
+                alert('Please login as Railway Staff');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Initialize staff object
+            currentStaff = new RailwayStaff(userData.id, userData.name, 'staff@railway.com', 'Station Master');
+            document.getElementById('userName').textContent = `Welcome, ${userData.name}`;
+
+            // Initialize system if needed
+            if (!railwaySystem) {
+                railwaySystem = new RailwaySystem();
+            }
+
+            showTrains();
+        });
+
+        function showTrains() {
+            document.getElementById('trainsSection').style.display = 'block';
+            document.getElementById('bookingsSection').style.display = 'none';
+            
+            // Update active nav button
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            loadTrains();
+        }
+
+        function showBookings() {
+            document.getElementById('trainsSection').style.display = 'none';
+            document.getElementById('bookingsSection').style.display = 'block';
+            
+            // Update active nav button
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            loadBookings();
+        }
+
+        function loadTrains() {
+            const trains = railwaySystem.getAllTrains();
+            const trainsList = document.getElementById('trainsList');
+            
+            if (trains.length === 0) {
+                trainsList.innerHTML = '<p class="empty-message">No trains in the system. Add a train to get started.</p>';
+                return;
+            }
+
+            trainsList.innerHTML = trains.map(train => `
+                <div class="card">
+                    <h3>${train.getTrainName()}</h3>
+                    <div class="card-info">
+                        <p><strong>Train ID:</strong> ${train.getTrainId()}</p>
+                        <p><strong>Route:</strong> ${train.getSource()} → ${train.getDestination()}</p>
+                        <p><strong>Date:</strong> ${train.getDepartureDate()}</p>
+                        <p><strong>Time:</strong> ${train.getDepartureTime()}</p>
+                        <p><strong>Available Seats:</strong> ${train.getAvailableSeats()} / ${train.getTotalSeats()}</p>
+                    </div>
+                    <div class="card-actions">
+                        <button onclick="updateTrainStatus('${train.getTrainId()}')" class="btn btn-secondary">Update Status</button>
+                        <button onclick="deleteTrain('${train.getTrainId()}')" class="btn btn-danger">Delete Train</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function loadBookings() {
+            const bookings = railwaySystem.getAllBookings();
+            const bookingsList = document.getElementById('bookingsList');
+            
+            if (bookings.length === 0) {
+                bookingsList.innerHTML = '<p class="empty-message">No bookings in the system.</p>';
+                return;
+            }
+
+            bookingsList.innerHTML = bookings.map(booking => {
+                const train = railwaySystem.getTrainById(booking.getTrainId());
+                return `
+                    <div class="card">
+                        <h3>Booking #${booking.getBookingId()}</h3>
+                        <div class="card-info">
+                            <p><strong>Passenger ID:</strong> ${booking.getPassengerId()}</p>
+                            <p><strong>Train:</strong> ${train ? train.getTrainName() : 'N/A'}</p>
+                            <p><strong>Route:</strong> ${train ? train.getSource() + ' → ' + train.getDestination() : 'N/A'}</p>
+                            <p><strong>Booking Date:</strong> ${booking.getBookingDate()}</p>
+                            <p><strong>Status:</strong> <span class="status-badge status-${booking.getStatus().toLowerCase()}">${booking.getStatus()}</span></p>
+                            <p><strong>Seat Number:</strong> ${booking.getSeatNumber() || 'TBA'}</p>
+                        </div>
+                        <div class="card-actions">
+                            ${booking.getStatus() === 'PENDING' ? 
+                                `<button onclick="confirmBooking('${booking.getBookingId()}')" class="btn btn-primary">Confirm Booking</button>` : 
+                                ''
+                            }
+                            ${booking.getStatus() === 'CONFIRMED' ? 
+                                `<button onclick="processReturn('${booking.getBookingId()}')" class="btn btn-secondary">Process Return</button>` : 
+                                ''
+                            }
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showAddTrainForm() {
+            document.getElementById('addTrainForm').style.display = 'block';
+        }
+
+        function hideAddTrainForm() {
+            document.getElementById('addTrainForm').style.display = 'none';
+            document.querySelector('#addTrainForm form').reset();
+        }
+
+        function addTrain(event) {
+            event.preventDefault();
+            
+            if (!currentStaff) {
+                alert('Please login first');
+                return;
+            }
+
+            const trainName = document.getElementById('trainName').value;
+            const source = document.getElementById('trainSource').value;
+            const destination = document.getElementById('trainDestination').value;
+            const date = document.getElementById('trainDate').value;
+            const time = document.getElementById('trainTime').value;
+            const seats = parseInt(document.getElementById('trainSeats').value);
+
+            // Staff adds a new train (uses inheritance - RailwayStaff extends User)
+            const trainId = 'T' + Date.now().toString().slice(-6);
+            const train = new Train(trainId, trainName, source, destination, date, time, seats);
+            
+            const added = currentStaff.addTrain(train, railwaySystem);
+            
+            if (added) {
+                alert('Train added successfully!');
+                hideAddTrainForm();
+                loadTrains();
+            } else {
+                alert('Failed to add train');
+            }
+        }
+
+        function updateTrainStatus(trainId) {
+            const train = railwaySystem.getTrainById(trainId);
+            if (!train) {
+                alert('Train not found');
+                return;
+            }
+
+            const newSeats = prompt(`Enter new total seats (current: ${train.getTotalSeats()}):`);
+            if (newSeats && !isNaN(newSeats) && parseInt(newSeats) > 0) {
+                const updated = currentStaff.updateTrainStatus(train, parseInt(newSeats), railwaySystem);
+                if (updated) {
+                    alert('Train status updated successfully');
+                    loadTrains();
+                } else {
+                    alert('Failed to update train status');
+                }
+            }
+        }
+
+        function deleteTrain(trainId) {
+            if (confirm('Are you sure you want to delete this train?')) {
+                const deleted = currentStaff.deleteTrain(trainId, railwaySystem);
+                if (deleted) {
+                    alert('Train deleted successfully');
+                    loadTrains();
+                } else {
+                    alert('Failed to delete train');
+                }
+            }
+        }
+
+        function confirmBooking(bookingId) {
+            if (!currentStaff) {
+                alert('Please login first');
+                return;
+            }
+
+            // Staff confirms/issues booking (uses inheritance - RailwayStaff extends User)
+            const booking = railwaySystem.getBookingById(bookingId);
+            if (!booking) {
+                alert('Booking not found');
+                return;
+            }
+
+            const confirmed = currentStaff.issueBooking(booking, railwaySystem);
+            if (confirmed) {
+                alert('Booking confirmed and ticket issued!');
+                loadBookings();
+            } else {
+                alert('Failed to confirm booking');
+            }
+        }
+
+        function processReturn(bookingId) {
+            if (!currentStaff) {
+                alert('Please login first');
+                return;
+            }
+
+            // Staff processes return (uses inheritance - RailwayStaff extends User)
+            const booking = railwaySystem.getBookingById(bookingId);
+            if (!booking) {
+                alert('Booking not found');
+                return;
+            }
+
+            const returned = currentStaff.processReturn(booking, railwaySystem);
+            if (returned) {
+                alert('Return processed successfully!');
+                loadBookings();
+            } else {
+                alert('Failed to process return');
+            }
+        }
+
+        function logout() {
+            sessionStorage.removeItem('currentUser');
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
+

@@ -821,9 +821,3 @@ railway-management-system/
 └── OOAD_DOCUMENTATION.md          # This file
 ```
 
----
-
-**Document Version:** 1.0  
-**Last Updated:** 2024  
-**Author:** OOAD Project Documentation
-
